@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AWO Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #cacaca; color: #eee; padding: 16px; }
+        h1 { color: #DB1A1A; margin-bottom: 16px; font-size: 1.4em; }
+        h2 { font-size: 1em; color: #aaa; margin-bottom: 12px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .card { background: #113161; border-radius: 10px; padding: 16px; }
+        .card.full { grid-column: 1 / -1; }
+        .value { font-size: 1.8em; font-weight: bold; color: #DB1A1A; }
+        .label { font-size: 0.8em; color: #aaa; margin-top: 4px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; 
+                 font-size: 0.8em; font-weight: bold; }
+        .badge-auto  { background: #1a472a; color: #69db7c; }
+        .badge-manual{ background: #1a3a4a; color: #74c0fc; }
+        .badge-lock  { background: #4a1942; color: #f783ac; }
+        .badge-estop { background: #7a1f1f; color: #ff6b6b; }
+        input[type=range] { width: 100%; margin: 8px 0; accent-color: #e94560; }
+        input[type=password], input[type=text] { 
+            width: 100%; padding: 10px; border-radius: 8px; 
+            border: 1px solid #0f3460; background: #1a1a2e; 
+            color: #eee; font-size: 0.9em; margin-bottom: 8px; }
+        button { padding: 10px 20px; background: #DB1A1A; color: white;
+                 border: none; border-radius: 8px; cursor: pointer; 
+                 font-size: 0.9em; width: 100%; margin-top: 8px; }
+        button:hover { background: #c73652; }
+        button.secondary { background: #0f3460; }
+        button.secondary:hover { background: #1a4a80; }
+        button.danger { background: #7a1f1f; }
+        button.danger:hover { background: #9a2f2f; }
+        .teacher-banner { background: #7a1f1f; color: #ff6b6b; padding: 12px; 
+                          border-radius: 8px; text-align: center; 
+                          margin-bottom: 16px; display: none; }
+        .locked { opacity: 0.5; pointer-events: none; }
+        canvas { max-height: 200px; }
+        .tab-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+        .tab { padding: 8px 16px; border-radius: 8px; cursor: pointer; 
+               background: #16213e; color: #aaa; font-size: 0.9em; }
+        .tab.active { background: #DB1A1A; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .msg { padding: 10px; border-radius: 8px; margin-top: 8px; 
+               text-align: center; font-size: 0.85em; }
+        .msg.ok  { background: #1a472a; color: #69db7c; }
+        .msg.err { background: #4a1942; color: #f783ac; }
+    </style>
+</head>
+<body>
+
+<h1>🪟 AWO Dashboard</h1>
+
+<!-- Teacher override banner -->
+<div id="teacherBanner" class="teacher-banner">
+    ⚠️ TEACHER OVERRIDE ACTIVE — All controls locked
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+    <div class="tab active" onclick="showTab('overview')">Overview</div>
+    <div class="tab" onclick="showTab('control')">Control</div>
+    <div class="tab" onclick="showTab('settings')">Settings</div>
+    <div class="tab" onclick="showTab('admin')">Admin</div>
+</div>
+
+<!-- OVERVIEW TAB -->
+<div id="tab-overview" class="tab-content active">
+    <div class="grid">
+        <div class="card">
+            <div class="value" id="indoorTemp">--</div>
+            <div class="label">Indoor Temp (°C)</div>
+        </div>
+        <div class="card">
+            <div class="value" id="indoorHumidity">--</div>
+            <div class="label">Indoor Humidity (%)</div>
+        </div>
+        <div class="card">
+            <div class="value" id="outdoorTemp">--</div>
+            <div class="label">Outdoor Temp (°C)</div>
+        </div>
+        <div class="card">
+            <div class="value" id="outdoorHumidity">--</div>
+            <div class="label">Outdoor Humidity (%)</div>
+        </div>
+        <div class="card">
+            <div class="value" id="windSpeed">--</div>
+            <div class="label">Wind Speed (km/h)</div>
+        </div>
+        <div class="card">
+            <div class="value" id="rainStatus">--</div>
+            <div class="label">Rain Detected</div>
+        </div>
+        <div class="card">
+            <div class="value" id="lightLevel">--</div>
+            <div class="label">Light Level</div>
+        </div>
+        <div class="card">
+            <div class="value" id="windowPos">--</div>
+            <div class="label">Window Position (%)</div>
+        </div>
+        <div class="card">
+            <h2>System Status</h2>
+            <span id="modeBadge" class="badge">--</span>
+            &nbsp;
+            <span id="stateBadge" class="badge">--</span>
+        </div>
+        <div class="card">
+            <h2>System Health</h2>
+            <div id="healthGrid" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:8px">
+                <div class="health-item" id="health-estop">
+                    <span class="dot"></span> Emergency Stop
+                </div>
+                <div class="health-item" id="health-outdoor">
+                    <span class="dot"></span> Outdoor Module
+                </div>
+                <div class="health-item" id="health-overcurrent">
+                    <span class="dot"></span> Motor Current
+                </div>
+                <div class="health-item" id="health-natural">
+                    <span class="dot"></span> Natural Events
+                </div>
+            </div>
+        </div>
+        
+        <div class="card full">
+            <h2>Temperature History</h2>
+            <canvas id="tempChart"></canvas>
+        </div>
+        
+    </div>
+</div>
+</div>
+
+<!-- CONTROL TAB -->
+<div id="tab-control" class="tab-content">
+    <div id="controlSection">
+        <div id="loginSection" class="card" style="margin-bottom:12px">
+            <h2>Login to Control</h2>
+            <input type="password" id="userPass" placeholder="Enter password">
+            <button onclick="userLogin()">Login</button>
+            <div id="loginMsg" class="msg" style="display:none"></div>
+        </div>
+        <div id="controlPanel" style="display:none">
+            <div class="card" style="margin-bottom:12px">
+                <h2>Window Position</h2>
+                <div class="value" id="posDisplay">--%</div>
+                <input type="range" id="posSlider" min="0" max="100" step="5" value="0"
+                       oninput="document.getElementById('posDisplay').textContent=this.value+'%'">
+                <button onclick="setPosition()">Set Position</button>
+            </div>
+            <div class="card" style="margin-bottom:12px">
+                <h2>Mode</h2>
+                <button onclick="setMode('MANUAL')"   class="secondary">Manual</button>
+                <button onclick="setMode('AUTOMATIC')" class="secondary">Automatic</button>
+                <button onclick="setMode('LOCK')"     class="danger">Lock</button>
+            </div>
+            <div class="card">
+                <h2>Temperature Settings</h2>
+                <label>Target Temp (°C)</label>
+                <input type="text" id="targetTemp" placeholder="e.g. 25">
+                <label>Range ±(°C)</label>
+                <input type="text" id="tempRange" placeholder="e.g. 2">
+                <label>Wind Threshold (km/h)</label>
+                <input type="text" id="windThresh" placeholder="e.g. 30">
+                <button onclick="saveSettings()">Save Settings</button>
+                <div id="settingsMsg" class="msg" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div id="tab-settings" class="tab-content">
+    <div class="card">
+        <h2>Current Settings</h2>
+        <p>Target Temp: <span id="setTempDisplay">--</span>°C</p>
+        <br>
+        <p>Temp Range: ±<span id="setRangeDisplay">--</span>°C</p>
+        <br>
+        <p>Wind Threshold: <span id="setWindDisplay">--</span> km/h</p>
+    </div>
+</div>
+
+<!-- ADMIN TAB -->
+<div id="tab-admin" class="tab-content">
+    <div id="teacherLoginSection" class="card" style="margin-bottom:12px">
+        <h2>Teacher Login</h2>
+        <input type="password" id="teacherPass" placeholder="Teacher password">
+        <button onclick="teacherLogin()">Login as Teacher</button>
+        <div id="teacherLoginMsg" class="msg" style="display:none"></div>
+    </div>
+    <div id="teacherPanel" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+            <h2>Teacher Override</h2>
+            <p style="color:#aaa; margin-bottom:12px; font-size:0.85em">
+                When enabled, all physical and web controls are locked.
+            </p>
+            <button id="overrideBtn" onclick="toggleOverride()">Enable Override</button>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+            <h2>Change User Password</h2>
+            <input type="password" id="newUserPass" placeholder="New user password">
+            <button onclick="changeUserPass()">Update</button>
+            <div id="userPassMsg" class="msg" style="display:none"></div>
+        </div>
+        <div class="card">
+            <h2>Change Teacher Password</h2>
+            <input type="password" id="newTeacherPass" placeholder="New teacher password">
+            <button onclick="changeTeacherPass()">Update</button>
+            <div id="teacherPassMsg" class="msg" style="display:none"></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+            <h2>WiFi Settings</h2>
+            <button class="danger" onclick="resetWiFi()">Reset WiFi (re-run setup)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── CHART SETUP ─────────────────────────────────────────────────
+const chartData = { labels: [], indoor: [], outdoor: [] };
+const ctx = document.getElementById('tempChart').getContext('2d');
+const tempChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: chartData.labels,
+        datasets: [
+            { label: 'Indoor', data: chartData.indoor, 
+              borderColor: '#e94560', tension: 0.3, fill: false },
+            { label: 'Outdoor', data: chartData.outdoor, 
+              borderColor: '#74c0fc', tension: 0.3, fill: false }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#eee' } } },
+        scales: {
+            x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+            y: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
+        }
+    }
+});
+
+// ── TAB SWITCHING ────────────────────────────────────────────────
+function showTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+}
+
+// ── DATA POLLING ─────────────────────────────────────────────────
+let teacherOverrideActive = false;
+
+function updateDashboard() {
+    fetch('/api/data')
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('indoorTemp').textContent     = d.indoorTemp.toFixed(1);
+            document.getElementById('indoorHumidity').textContent = d.indoorHumidity.toFixed(1);
+            document.getElementById('outdoorTemp').textContent    = d.outdoorTemp.toFixed(1);
+            document.getElementById('outdoorHumidity').textContent= d.outdoorHumidity.toFixed(1);
+            document.getElementById('windSpeed').textContent      = d.windSpeed.toFixed(1);
+            document.getElementById('rainStatus').textContent     = d.rain ? '🌧 Yes' : '☀️ No';
+            document.getElementById('lightLevel').textContent     = d.light.toFixed(0);
+            document.getElementById('windowPos').textContent      = d.position + '%';
+            document.getElementById('setTempDisplay').textContent = d.targetTemp.toFixed(1);
+            document.getElementById('setRangeDisplay').textContent= d.tempRange.toFixed(1);
+            document.getElementById('setWindDisplay').textContent = d.windThreshold.toFixed(1);
+
+            // mode badge
+            const modeBadge = document.getElementById('modeBadge');
+            modeBadge.textContent = d.mode;
+            modeBadge.className = 'badge badge-' + d.mode.toLowerCase();
+
+            // state badge
+            const stateBadge = document.getElementById('stateBadge');
+            stateBadge.textContent = d.state;
+            stateBadge.className = d.state === 'EMERGENCY_STOP' ? 
+                'badge badge-estop' : 'badge badge-manual';
+
+            // teacher override
+            teacherOverrideActive = d.teacherOverride;
+            document.getElementById('teacherBanner').style.display = 
+                d.teacherOverride ? 'block' : 'none';
+            document.getElementById('overrideBtn').textContent = 
+                d.teacherOverride ? 'Disable Override' : 'Enable Override';
+
+            // update chart (keep last 20 points)
+            const now = new Date().toLocaleTimeString();
+            if (chartData.labels.length > 20) {
+                chartData.labels.shift();
+                chartData.indoor.shift();
+                chartData.outdoor.shift();
+            }
+            chartData.labels.push(now);
+            chartData.indoor.push(d.indoorTemp);
+            chartData.outdoor.push(d.outdoorTemp);
+            tempChart.update();
+        })
+        .catch(() => console.log('Data fetch failed'));
+}
+
+// poll every 3 seconds
+setInterval(updateDashboard, 3000);
+updateDashboard();
+
+// ── AUTH ─────────────────────────────────────────────────────────
+function userLogin() {
+    const pass = document.getElementById('userPass').value;
+    fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'pass=' + encodeURIComponent(pass) + '&type=user'
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById('loginMsg');
+        msg.style.display = 'block';
+        if (d.success) {
+            msg.className = 'msg ok';
+            msg.textContent = 'Logged in!';
+            document.getElementById('loginSection').style.display  = 'none';
+            document.getElementById('controlPanel').style.display  = 'block';
+        } else {
+            msg.className = 'msg err';
+            msg.textContent = 'Wrong password';
+        }
+    });
+}
+
+function teacherLogin() {
+    const pass = document.getElementById('teacherPass').value;
+    fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'pass=' + encodeURIComponent(pass) + '&type=teacher'
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById('teacherLoginMsg');
+        msg.style.display = 'block';
+        if (d.success) {
+            msg.className = 'msg ok';
+            msg.textContent = 'Teacher logged in!';
+            document.getElementById('teacherLoginSection').style.display = 'none';
+            document.getElementById('teacherPanel').style.display        = 'block';
+        } else {
+            msg.className = 'msg err';
+            msg.textContent = 'Wrong password';
+        }
+    });
+}
+
+// ── CONTROLS ─────────────────────────────────────────────────────
+function setPosition() {
+    const pos = document.getElementById('posSlider').value;
+    fetch('/api/position', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'pos=' + pos
+    }).then(r => r.json()).then(d => alert(d.success ? 'Position set!' : 'Failed'));
+}
+
+function setMode(mode) {
+    fetch('/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'mode=' + mode
+    }).then(r => r.json()).then(d => alert(d.success ? 'Mode set!' : 'Failed'));
+}
+
+function saveSettings() {
+    const temp  = document.getElementById('targetTemp').value;
+    const range = document.getElementById('tempRange').value;
+    const wind  = document.getElementById('windThresh').value;
+    fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `temp=${temp}&range=${range}&wind=${wind}`
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById('settingsMsg');
+        msg.style.display = 'block';
+        msg.className = d.success ? 'msg ok' : 'msg err';
+        msg.textContent = d.success ? 'Settings saved!' : 'Failed';
+    });
+}
+
+function toggleOverride() {
+    fetch('/api/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'enable=' + (!teacherOverrideActive ? '1' : '0')
+    }).then(r => r.json()).then(d => {
+        if (d.success) updateDashboard();
+    });
+}
+
+function changeUserPass() {
+    const pass = document.getElementById('newUserPass').value;
+    fetch('/api/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'type=user&pass=' + encodeURIComponent(pass)
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById('userPassMsg');
+        msg.style.display = 'block';
+        msg.className = d.success ? 'msg ok' : 'msg err';
+        msg.textContent = d.success ? 'Password updated!' : 'Failed';
+    });
+}
+
+function changeTeacherPass() {
+    const pass = document.getElementById('newTeacherPass').value;
+    fetch('/api/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'type=teacher&pass=' + encodeURIComponent(pass)
+    })
+    .then(r => r.json())
+    .then(d => {
+        const msg = document.getElementById('teacherPassMsg');
+        msg.style.display = 'block';
+        msg.className = d.success ? 'msg ok' : 'msg err';
+        msg.textContent = d.success ? 'Password updated!' : 'Failed';
+    });
+}
+
+function resetWiFi() {
+    if (!confirm('Reset WiFi? Device will restart in setup mode.')) return;
+    fetch('/api/resetwifi', { method: 'POST' })
+        .then(() => alert('WiFi reset. Connect to AWO_Setup network.'));
+}
+</script>
+</body>
+</html>

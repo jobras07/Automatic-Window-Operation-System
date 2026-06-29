@@ -54,7 +54,7 @@ Shows current mode, window position, live sensor readings, and error codes when 
 
 Accessible over the local Wi-Fi network once the indoor module connects. Displays live sensor data, window position, and mode status. Allows remote position/mode control and supports a password-protected Teacher Override login. Logged data is viewable and downloadable as a CSV file directly from the dashboard.
 
-## Control Password
+### Control Password
 
 Password for the controls for the Web Dashboard.
 

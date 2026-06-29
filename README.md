@@ -58,8 +58,8 @@ Accessible over the local Wi-Fi network once the indoor module connects. Display
 
 Password for the controls for the Web Dashboard.
 
-Normal: user1234
-Teacher: teacher1234
+- Normal: user1234
+- Teacher: teacher1234
 
 ### Safety Behaviour
 
